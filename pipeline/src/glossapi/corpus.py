@@ -10,6 +10,7 @@ from .gloss_extract import GlossExtract
 from .gloss_section import GlossSection
 from .gloss_section_classifier import GlossSectionClassifier
 from .gloss_downloader import GlossDownloader
+from .gloss_preprocess import GlossPreprocess
 
 class Corpus:
     """
@@ -232,6 +233,43 @@ class Corpus:
         # For subsequent operations, use the good files
         self.markdown_dir = self.good_markdown_dir
 
+    def preprocess(self) -> None:
+        """
+        Preprocess input files to identify problematic files before extraction.
+        
+        This method analyzes files in the input directory, collects metadata,
+        and identifies potentially problematic files based on specific criteria:
+        - File extension issues (missing, multiple, or unusual extensions)
+        - Suspiciously small file sizes
+        - PDF-specific issues (font embedding, subsetting problems)
+        
+        The problematic files are excluded from further processing.
+        """
+        self.logger.info(f"Preprocessing files in {self.input_dir}...")
+        
+        # Create a preprocessing report directory at the same level as pipeline and scraping
+        reports_dir = Path(self.input_dir).parent.parent / "reports"
+        os.makedirs(reports_dir, exist_ok=True)
+        
+        # Initialize the preprocessor with the report directory
+        preprocessor = GlossPreprocess(str(self.input_dir), str(reports_dir))
+        
+        # Analyze files and identify problematic ones
+        preprocessor.analyze_files()
+        
+        # Generate reports
+        preprocessor.generate_reports()
+        
+        # Get clean files (non-problematic)
+        clean_files = preprocessor.get_clean_files()
+        
+        self.logger.info(f"Preprocessing complete. Found {len(clean_files)} clean files out of {len(preprocessor.file_data)} total files.")
+        self.logger.info(f"Identified {len(preprocessor.problematic_files)} problematic files that will be excluded from processing.")
+        self.logger.info(f"Preprocessing reports saved to {reports_dir}")
+        
+        # Store clean files for later use in the extraction process
+        self.clean_files = clean_files
+
     def extract(
         self, 
         input_format: str = "all", 
@@ -338,6 +376,19 @@ class Corpus:
             return
         
         self.logger.info(f"Found {len(input_files)} files to extract")
+        
+        # Filter out problematic files if preprocessing was done
+        if hasattr(self, 'clean_files') and self.clean_files:
+            # Convert paths to strings for comparison
+            clean_files_str = set(str(Path(f).resolve()) for f in self.clean_files)
+            
+            # Filter input_files to only include clean files
+            filtered_files = [f for f in input_files if str(f.resolve()) in clean_files_str]
+            
+            skipped_count = len(input_files) - len(filtered_files)
+            if skipped_count > 0:
+                self.logger.info(f"Skipping {skipped_count} problematic files identified during preprocessing")
+                input_files = filtered_files
         
         # Process all files
         self.logger.info(f"Processing {len(input_files)} files...")
@@ -731,6 +782,7 @@ class Corpus:
                 self.logger.error(f"Error during download step: {e}")
                 self.logger.warning("Continuing with extraction of already downloaded files...")
                 
+        self.preprocess()
         self.extract(input_format=input_format)
         self.section()
         self.annotate(fully_annotate=fully_annotate, annotation_type=annotation_type)
