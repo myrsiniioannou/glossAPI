@@ -16,9 +16,9 @@ Usage:
     python gloss_preprocess.py --input_dir /path/to/input [--output_dir /path/to/output]
 
 Outputs:
-    - dataset_analysis_results.csv: Detailed analysis of all files
+    - preprocessing_analysis_results.csv: Detailed analysis of all files
     - problematic_files.txt: List of files that may cause issues in processing
-    - dataset_analysis_report.md: Comprehensive report with statistics and findings
+    - preprocessing_report.md: Comprehensive report with statistics and findings
 """
 
 import os
@@ -77,7 +77,7 @@ class GlossPreprocess:
         
         Args:
             input_dir: Directory containing input files to analyze
-            output_dir: Directory for output files (default: creates 'preprocess_output' in parent of input_dir)
+            output_dir: Directory for output files (default: creates 'reports/preprocessing' in parent of input_dir)
             log_level: Logging level (default: logging.INFO)
         """
         # Setup logging
@@ -94,16 +94,16 @@ class GlossPreprocess:
         if output_dir:
             self.output_dir = Path(output_dir)
         else:
-            # Create output directory at the same level as input directory
-            self.output_dir = self.input_dir.parent / "preprocess_output"
+            # Create centralized reports directory with preprocessing subdirectory
+            self.output_dir = self.input_dir.parent / "reports" / "preprocessing"
         
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
         
         # Set up output file paths
-        self.analysis_csv = self.output_dir / "dataset_analysis_results.csv"
+        self.analysis_csv = self.output_dir / "preprocessing_analysis_results.csv"
         self.problematic_files_txt = self.output_dir / "problematic_files.txt"
-        self.report_md = self.output_dir / "dataset_analysis_report.md"
+        self.report_md = self.output_dir / "preprocessing_report.md"
         
         # Initialize results storage
         self.analysis_results = []
@@ -526,49 +526,45 @@ class GlossPreprocess:
     
     # ===== REPORT GENERATION METHODS =====
     
-    def generate_report(self, analysis_results: List[Dict[str, Any]], problematic_files: List[str], report_file: Path) -> None:
+    def generate_report(self, analysis_results: List[Dict[str, Any]], problematic_files: List[str], report_file: Union[str, Path]) -> bool:
         """
-        Generate a comprehensive Markdown report with dataset statistics and analysis.
+        Generate a comprehensive report with statistics and findings.
         
         Args:
-            analysis_results: List of dictionaries containing analysis results for each file
+            analysis_results: List of dictionaries with analysis results for each file
             problematic_files: List of problematic file paths
-            report_file: Path to the output report file
+            report_file: Path to save the report
+            
+        Returns:
+            True if report was generated successfully, False otherwise
         """
-        # Helper function to format markdown tables with consistent column widths
-        def format_table_row(columns, widths):
-            """Format a table row with consistent column widths"""
-            return "| " + " | ".join(str(col).ljust(width) for col, width in zip(columns, widths)) + " |"
-        
-        # Collect statistics from the dataset
-        file_extensions = Counter()
-        total_files = 0
-        pdf_stats = {
-            'total': 0,
-            'with_identity_h': 0,
-            'with_embedding': 0,
-            'with_subsetting': 0,
-            'with_unicode': 0,
-            'embedding_percentages': [],
-            'subsetting_percentages': [],
-            'identity_h_percentages': []
-        }
-        
-        # Track problematic files by criteria
-        problematic_by_criteria = {
-            'small_html': 0,
-            'small_docx': 0,
-            'small_pdf': 0,
-            'small_xml': 0,
-            'pdf_font_issues': 0,
-            'missing_extension': 0,
-            'multiple_extensions': 0,
-            'unusual_extension': 0
-        }
-        
-        problematic_set = set(problematic_files)
-        
         try:
+            # Create output directory if it doesn't exist
+            os.makedirs(os.path.dirname(report_file), exist_ok=True)
+            
+            # Process analysis results to extract statistics
+            total_files = len(analysis_results)
+            
+            # Count file extensions
+            file_extensions = Counter()
+            
+            # Track problematic files by criteria
+            problematic_by_criteria = defaultdict(int)
+            
+            # PDF-specific statistics
+            pdf_stats = {
+                'total': 0,
+                'with_identity_h': 0,
+                'with_embedding': 0,
+                'with_subsetting': 0,
+                'with_unicode': 0,
+                'embedding_percentages': [],
+                'subsetting_percentages': [],
+                'identity_h_percentages': []
+            }
+            
+            problematic_set = set(problematic_files)
+            
             for row in analysis_results:
                 total_files += 1
                 file_extension = row['file_extension'].lower()
@@ -639,7 +635,7 @@ class GlossPreprocess:
             # Generate the report
             with open(report_file, 'w', encoding='utf-8') as f:
                 # Report header
-                f.write("# Dataset Analysis Report\n\n")
+                f.write("# Preprocessing Analysis Report\n\n")
                 f.write(f"*Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n")
                 
                 # Overall statistics

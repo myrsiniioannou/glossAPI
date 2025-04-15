@@ -1,0 +1,109 @@
+{
+  "known_tags": {
+    "NoDocSe": {
+      "translation": "Αριθμός Εγγράφου:",
+      "description": "Document number identifier",
+      "preserve_content": true
+    },
+    "Date": {
+      "translation": "Ημερομηνία:",
+      "description": "Document date",
+      "preserve_content": true
+    },
+    "TitreType": {
+      "translation": "Ειδικός Τύπος Εγγράφου:",
+      "description": "Document type specification",
+      "preserve_content": true
+    },
+    "TitreRecueil": {
+      "translation": "Νομική Αναφορά:",
+      "description": "Legal reference",
+      "preserve_content": true
+    },
+    "Titre": {
+      "translation": "Τίτλος:",
+      "description": "Title",
+      "preserve_content": true
+    },
+    "TitreSuite": {
+      "translation": "Υπότιτλος:",
+      "description": "Subtitle",
+      "preserve_content": true
+    },
+    "Depute": {
+      "translation": "Συντάκτης:",
+      "description": "Author or deputy",
+      "preserve_content": true
+    },
+    "RefProcLect": {
+      "translation": "Αναφορά Διαδικασίας:",
+      "description": "Procedure reference",
+      "preserve_content": true
+    },
+    "DocRef": {
+      "translation": "Αναφορά Εγγράφου:",
+      "description": "Document reference",
+      "preserve_content": true
+    },
+    "Commission": {
+      "translation": "Επιτροπή:",
+      "description": "Commission",
+      "preserve_content": true
+    },
+    "CommissionResp": {
+      "translation": "Γνωμοδότηση Επιτροπής:",
+      "description": "Commission opinion",
+      "preserve_content": true
+    },
+    "RepeatBlock-By": {
+      "translation": "Υποβλήθηκε Από:",
+      "description": "Submitted by",
+      "preserve_content": true
+    },
+    "RepeatBlock-NoDocSe": {
+      "translation": "Αριθμός Εγγράφου (Επαναλαμβανόμενο):",
+      "description": "Repeating document number",
+      "preserve_content": true
+    },
+    "Replacing": {
+      "translation": "Αντικαθιστά:",
+      "description": "Replaces",
+      "preserve_content": true
+    },
+    "TablingGroups": {
+      "translation": "Ομάδες Κατάθεσης:",
+      "description": "Tabling groups",
+      "preserve_content": true
+    },
+    "DocAmend": {
+      "translation": "Τροποποίηση Εγγράφου:",
+      "description": "Document amendment",
+      "preserve_content": true
+    },
+    "Article": {
+      "translation": "Άρθρο:",
+      "description": "Article",
+      "preserve_content": true
+    },
+    "Amend": {
+      "translation": "Τροποποίηση:",
+      "description": "Amendment",
+      "preserve_content": true
+    },
+    "NumAm": {
+      "translation": "Αριθμός Τροποποίησης:",
+      "description": "Amendment number",
+      "preserve_content": true
+    },
+    "Original": {
+      "translation": "Πρωτότυπο:",
+      "description": "Original text",
+      "preserve_content": true
+    },
+    "AmendB": {
+      "translation": "Έναρξη Τροποποίησης:",
+      "description": "Beginning of amendment",
+      "preserve_content": true
+    }
+  }
+}

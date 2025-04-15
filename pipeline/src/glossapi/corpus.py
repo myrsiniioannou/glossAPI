@@ -171,7 +171,7 @@ class Corpus:
             if self.metadata_path:
                 self.logger.warning(f"Metadata file not found: {self.metadata_path}")
     
-    def filter(self, input_dir: Union[str, Path] = None, split_bad: bool = True, model_path: Optional[Union[str, Path]] = None) -> None:
+    def filter(self, input_dir: Union[str, Path] = None, split_bad: bool = True, model_path: Optional[Union[str, Path]] = None, reports_dir: Optional[Union[str, Path]] = None) -> None:
         """
         Filter markdown files based on quality to separate good from bad quality.
         
@@ -179,12 +179,11 @@ class Corpus:
             input_dir: Directory containing markdown files to filter (defaults to self.markdown_dir)
             split_bad: Whether to separate files into good/bad quality or keep all as good
             model_path: Path to the pre-trained model for clustering (defaults to self.extraction_model_path)
+            reports_dir: Directory to save reports (optional)
         """
         # Handle default parameters
         if input_dir is None:
             input_dir = self.markdown_dir
-        else:
-            input_dir = Path(input_dir)
             
         # Skip directory creation if not splitting bad files
         if not split_bad:
@@ -204,28 +203,59 @@ class Corpus:
         os.makedirs(good_dir, exist_ok=True)
         os.makedirs(bad_dir, exist_ok=True)
         
-        # Set extraction model path
-        if model_path is None:
-            model_path = str(self.extraction_model_path)
+        if split_bad:
+            # Only create bad dir if we're going to use it
+            os.makedirs(bad_dir, exist_ok=True)
+            
+            # Set extraction model path
+            if model_path is None:
+                model_path = str(self.extraction_model_path)
+            
+            # Check if model exists
+            if not os.path.exists(model_path):
+                self.logger.warning(f"Clustering model not found at {model_path}. Training a new model...")
+                # Create models directory only when needed for training a new model
+                os.makedirs(os.path.dirname(model_path), exist_ok=True)
+                # Train model
+                self.extractor.training(str(input_dir), model_path=model_path)
+                self.logger.info(f"Model trained and saved to {model_path}")
+            
+            # Set up report path if provided
+            report_path = None
+            if reports_dir is not None:
+                reports_dir = Path(reports_dir)
+                os.makedirs(reports_dir, exist_ok=True)
+                report_path = reports_dir / "quality_clustering_report.md"
+            
+            # Run split_bad to separate good and bad files
+            self.logger.info("Running clustering to separate good and bad quality documents...")
+            self.extractor.split_bad(
+                input_folder=str(input_dir),
+                output_folder=str(quality_dir),
+                model_file=model_path,
+                report_path=report_path
+            )
+            self.logger.info(f"Clustering complete. Files sorted into good/bad folders.")
+        else:
+            # If split_bad is disabled, just copy all files to the good directory
+            self.logger.info("Clustering disabled. Copying all files to 'good' folder...")
+            
+            # Get all markdown files
+            markdown_files = list(Path(input_dir).glob("*.md"))
+            
+            # Copy all files to good folder
+            copied_count = 0
+            for source_path in markdown_files:
+                filename = source_path.name
+                dest_path = good_dir / filename
+                try:
+                    shutil.copy2(source_path, dest_path)
+                    copied_count += 1
+                except Exception as e:
+                    self.logger.error(f"Error copying {filename}: {e}")
+            
+            self.logger.info(f"Copied {copied_count} files to good folder")
         
-        # Check if model exists
-        if not os.path.exists(model_path):
-            self.logger.warning(f"Clustering model not found at {model_path}. Training a new model...")
-            # Create models directory only when needed for training a new model
-            os.makedirs(os.path.dirname(model_path), exist_ok=True)
-            # Train model
-            self.extractor.training(str(input_dir), model_path=model_path)
-            self.logger.info(f"Model trained and saved to {model_path}")
-        
-        # Run split_bad to separate good and bad files
-        self.logger.info("Running clustering to separate good and bad quality documents...")
-        self.extractor.split_bad(
-            input_folder=str(input_dir),
-            output_folder=str(quality_dir),
-            model_file=model_path
-        )
-        self.logger.info(f"Clustering complete. Files sorted into good/bad folders.")
-
         # Update markdown_dir to use good files for further processing
         self.good_markdown_dir = good_dir
         self.logger.info(f"Files processed. Good files saved to {self.good_markdown_dir}")
@@ -247,12 +277,13 @@ class Corpus:
         """
         self.logger.info(f"Preprocessing files in {self.input_dir}...")
         
-        # Create a preprocessing report directory at the same level as pipeline and scraping
+        # Create a centralized reports directory
         reports_dir = Path(self.input_dir).parent.parent / "reports"
-        os.makedirs(reports_dir, exist_ok=True)
+        preprocess_reports_dir = reports_dir / "preprocessing"
+        os.makedirs(preprocess_reports_dir, exist_ok=True)
         
-        # Initialize the preprocessor with the report directory
-        preprocessor = GlossPreprocess(str(self.input_dir), str(reports_dir))
+        # Initialize the preprocessor with the preprocessing reports directory
+        preprocessor = GlossPreprocess(str(self.input_dir), str(preprocess_reports_dir))
         
         # Analyze files and identify problematic ones
         preprocessor.analyze_files()
@@ -265,7 +296,7 @@ class Corpus:
         
         self.logger.info(f"Preprocessing complete. Found {len(clean_files)} clean files out of {len(preprocessor.file_data)} total files.")
         self.logger.info(f"Identified {len(preprocessor.problematic_files)} problematic files that will be excluded from processing.")
-        self.logger.info(f"Preprocessing reports saved to {reports_dir}")
+        self.logger.info(f"Preprocessing reports saved to {preprocess_reports_dir}")
         
         # Store clean files for later use in the extraction process
         self.clean_files = clean_files
@@ -276,7 +307,8 @@ class Corpus:
         num_threads: int = 4, 
         accel_type: str = "Auto",
         split_bad: bool = True,
-        model_path: str = None
+        model_path: str = None,
+        run_filter: bool = False
     ) -> None:
         """
         Extract input files to markdown format.
@@ -288,8 +320,14 @@ class Corpus:
             accel_type: Acceleration type ("Auto", "CPU", "CUDA", "MPS") (default: "Auto")
             split_bad: Whether to perform clustering to separate good and bad files (default: True)
             model_path: Path to the KMeans clustering model (default: None, will use default path)
+            run_filter: Whether to automatically run filtering after extraction (default: False)
         """
         self.logger.info(f"Extracting {input_format} files to markdown...")
+        
+        # Create extraction reports directory
+        reports_dir = Path(self.input_dir).parent.parent / "reports"
+        extraction_reports_dir = reports_dir / "extraction"
+        os.makedirs(extraction_reports_dir, exist_ok=True)
         
         # Prepare extractor
         self.extractor.enable_accel(threads=num_threads, type=accel_type)
@@ -401,8 +439,9 @@ class Corpus:
         
         self.logger.info(f"Extraction complete. Markdown files saved to {self.markdown_dir}")
         
-        # Run filtering on extracted markdown files
-        self.filter(input_dir=self.markdown_dir, split_bad=split_bad, model_path=model_path)
+        # Run filtering on extracted markdown files if requested
+        if run_filter:
+            self.filter(input_dir=self.markdown_dir, split_bad=split_bad, model_path=model_path, reports_dir=extraction_reports_dir)
     
     def split_bad(self, model_path: Optional[Union[str, Path]] = None) -> None:
         """
