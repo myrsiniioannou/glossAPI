@@ -683,19 +683,12 @@ class GlossExtract:
         joblib.dump(kmeans, model_path)
         print(f"\nSaved model to {model_path} with standardized cluster labels (0=bad, 1=good)")
     
-    def split_bad(self, input_folder, output_folder, model_file='kmeans_weights.joblib', report_path=None):
+    def split_bad(self, input_folder, output_folder, model_file='kmeans_weights.joblib'):
         """
         Processes all Markdown files in input_folder:
           - Computes a trigram representation and clusters them.
           - Creates 'good' and 'bad' subdirectories in output_folder.
           - Copies files to these folders according to cluster labels.
-          - Optionally generates a quality clustering report.
-          
-        Args:
-            input_folder: Directory containing markdown files to process
-            output_folder: Directory to save good/bad quality files
-            model_file: Path to the pre-trained KMeans model
-            report_path: Path to save the quality clustering report (optional)
         """
         print("Starting document analysis...")
 
@@ -891,22 +884,6 @@ class GlossExtract:
         print(f"Good files: {copied_count['good']}")
         print(f"Bad files: {copied_count['bad']}")
         print("\nAnalysis complete! Check the classified files in the output folder.")
-        
-        # Generate quality clustering report if report_path is provided
-        if report_path is not None:
-            print(f"\nGenerating quality clustering report at {report_path}...")
-            self._generate_quality_report(
-                report_path=report_path,
-                input_folder=input_folder,
-                good_files=good_dir,
-                bad_files=bad_dir,
-                good_count=copied_count['good'],
-                bad_count=copied_count['bad'],
-                good_cluster=good_cluster,
-                bad_cluster=bad_cluster,
-                top_trigrams=clusters_top_trigrams
-            )
-            print(f"Report generated at {report_path}")
         
     def annotate_parquet_with_extraction_quality(self, markdown_folder, input_dir, model_file='kmeans_weights.joblib'):
         """
@@ -1118,69 +1095,3 @@ class GlossExtract:
         else:
             print("No matches found between markdown files and parquet entries. Parquet not updated.")
             return False
-
-    def _generate_quality_report(self, report_path, input_folder, good_files, bad_files, good_count, bad_count, good_cluster, bad_cluster, top_trigrams):
-        """
-        Generate a quality clustering report.
-        
-        Args:
-            report_path: Path to save the report
-            input_folder: Input folder for markdown files
-            good_files: Directory of good quality files
-            bad_files: Directory of bad quality files
-            good_count: Number of good quality files
-            bad_count: Number of bad quality files
-            good_cluster: Index of the good quality cluster
-            bad_cluster: Index of the bad quality cluster
-            top_trigrams: Dictionary of top trigrams for each cluster
-        """
-        print(f"\nGenerating quality clustering report at {report_path}...")
-        try:
-            os.makedirs(os.path.dirname(report_path), exist_ok=True)
-            
-            with open(report_path, 'w', encoding='utf-8') as f:
-                # Report header
-                f.write("# Quality Clustering Report\n\n")
-                f.write(f"*Generated on: {time.strftime('%Y-%m-%d %H:%M:%S')}*\n\n")
-                
-                # Overall statistics
-                f.write("## Overall Statistics\n\n")
-                f.write(f"- **Total Files Processed**: {good_count + bad_count}\n")
-                f.write(f"- **Good Quality Files**: {good_count}\n")
-                f.write(f"- **Bad Quality Files**: {bad_count}\n")
-                f.write(f"- **Silhouette Score**: N/A\n\n")
-                
-                # Cluster information
-                f.write("## Cluster Information\n\n")
-                f.write("### Top Trigrams by Cluster\n\n")
-                
-                for cluster_idx in range(2):
-                    cluster_name = "Good" if cluster_idx == good_cluster else "Bad"
-                    f.write(f"#### Cluster {cluster_idx} ({cluster_name} Quality)\n\n")
-                    top_trigrams = top_trigrams[f"cluster_{cluster_idx}"][:15]
-                    f.write(", ".join(top_trigrams) + "\n\n")
-                
-                # Classification methodology
-                f.write("## Classification Methodology\n\n")
-                f.write("Files are classified based on a combination of:\n\n")
-                f.write("1. **Clustering**: KMeans clustering of trigram features\n")
-                f.write("2. **Trigram Voting**: Counting good vs. bad trigrams in each document\n\n")
-                
-                f.write("### Good Trigram Examples\n\n")
-                f.write(", ".join(list(self.good_trigrams)[:20]) + "\n\n")
-                
-                f.write("### Bad Trigram Examples\n\n")
-                f.write(", ".join(self.bad_trigrams_raw[:20]) + "\n\n")
-                
-                f.write("### Good Quality Files\n\n")
-                f.write(f"Files in directory: {good_files}\n\n")
-                
-                f.write("### Bad Quality Files\n\n")
-                f.write(f"Files in directory: {bad_files}\n\n")
-                
-                f.write("### Input Folder\n\n")
-                f.write(f"Input folder: {input_folder}\n\n")
-                
-            print(f"Quality clustering report generated successfully at {report_path}")
-        except Exception as e:
-            print(f"Error generating quality clustering report: {e}")
